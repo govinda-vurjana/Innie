@@ -315,12 +315,23 @@ function clearAll() {
     sourceName = '';
     tiles = [];
     fileName.textContent = '';
-    fileBtnText.textContent = 'Choose Image';
     imageInput.value = '';
+    
+    // Reset drop zone text
+    const uploadText = dropZone.querySelector('.upload-text');
+    if (uploadText) {
+        uploadText.innerHTML = '<strong>Click to upload</strong> or drag & drop';
+    }
+    
     updateGridDisplay();
     setStatus('Cleared all');
 }
 
 function setStatus(msg) {
-    status.textContent = msg;
+    statusEl.textContent = msg;
+    if (msg.includes('success') || msg.includes('Loaded')) {
+        statusEl.classList.add('success');
+    } else {
+        statusEl.classList.remove('success');
+    }
 }

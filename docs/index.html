@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,7 +45,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: 
+            background:
                 radial-gradient(ellipse at 20% 20%, rgba(131, 58, 180, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 80%, rgba(228, 64, 95, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 50% 50%, rgba(247, 119, 55, 0.08) 0%, transparent 60%);
@@ -277,7 +278,7 @@
             transition: all 0.2s ease;
         }
 
-        .checkbox-wrapper input:checked + .checkbox-custom {
+        .checkbox-wrapper input:checked+.checkbox-custom {
             background: var(--ig-gradient);
             border-color: transparent;
         }
@@ -292,7 +293,7 @@
             transition: all 0.2s ease;
         }
 
-        .checkbox-wrapper input:checked + .checkbox-custom::after {
+        .checkbox-wrapper input:checked+.checkbox-custom::after {
             opacity: 1;
             transform: scale(1);
         }
@@ -496,11 +497,19 @@
 
         /* Animations */
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .controls, .preview-area {
+        .controls,
+        .preview-area {
             animation: fadeIn 0.6s ease forwards;
         }
 
@@ -510,15 +519,16 @@
 
         /* Glow effect on grid */
         .preview-grid {
-            box-shadow: 
+            box-shadow:
                 0 0 60px rgba(228, 64, 95, 0.1),
                 0 0 100px rgba(131, 58, 180, 0.05);
         }
     </style>
 </head>
+
 <body>
     <div class="bg-gradient"></div>
-    
+
     <div class="container">
         <header>
             <div class="logo">
@@ -623,7 +633,7 @@
                 Made with 💜 by <span>Innie</span>
             </div>
             <div>
-                <a href="https://github.com/yourusername/innie" target="_blank">GitHub</a> · 
+                <a href="https://github.com/yourusername/innie" target="_blank">GitHub</a> ·
                 Split. Post. Impress.
             </div>
         </footer>
@@ -673,11 +683,12 @@
 
         // Override updateGridDisplay to add indices
         const originalUpdateGridDisplay = updateGridDisplay;
-        updateGridDisplay = function() {
+        updateGridDisplay = function () {
             originalUpdateGridDisplay();
             updateGridCellIndices();
         };
         updateGridDisplay();
     </script>
 </body>
+
 </html>
