@@ -87,7 +87,7 @@ function clearImage() {
 function updateGridDisplay() {
     const count = parseInt(gridCount.value);
     previewGrid.innerHTML = '';
-    
+
     for (let i = 1; i <= count; i++) {
         const cell = document.createElement('div');
         cell.className = 'grid-cell';
@@ -277,20 +277,20 @@ async function downloadImages() {
     }
 
     const useZip = confirm('Download as ZIP?\n\nOK = ZIP file\nCancel = Individual PNGs');
-    
+
     if (useZip) {
         showToast('Creating ZIP...');
         const zip = new JSZip();
         const folder = zip.folder(`${sourceName}_grid_${gridCount.value}`);
-        
+
         for (let i = 0; i < tiles.length; i++) {
             const base64 = tiles[i].toDataURL('image/png').split(',')[1];
             folder.file(`grid_${String(i + 1).padStart(2, '0')}.png`, base64, { base64: true });
         }
-        
+
         const previewCanvas = createPreviewImage();
         folder.file('preview_grid.png', previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
-        
+
         const content = await zip.generateAsync({ type: 'blob' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
@@ -300,12 +300,12 @@ async function downloadImages() {
     } else {
         showToast('Downloading files...');
         const prefix = `${sourceName}_g${gridCount.value}`;
-        
+
         for (let i = 0; i < tiles.length; i++) {
             await downloadCanvas(tiles[i], `${prefix}_${String(i + 1).padStart(2, '0')}.png`);
             await new Promise(r => setTimeout(r, 150));
         }
-        
+
         await downloadCanvas(createPreviewImage(), `${prefix}_preview.png`);
         showToast(`Downloaded ${tiles.length + 1} files!`, true);
     }
@@ -333,7 +333,7 @@ function createPreviewImage() {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     for (let i = 0; i < tiles.length; i++) {
         ctx.drawImage(tiles[i], (i % cols) * POST_W, Math.floor(i / cols) * POST_H);
     }

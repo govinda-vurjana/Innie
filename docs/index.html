@@ -65,27 +65,43 @@
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 16px;
         }
 
-        .logo-icon {
-            width: 36px;
-            height: 36px;
-            background: var(--ig-gradient);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-        }
-
-        .logo-text {
-            font-size: 24px;
-            font-weight: 700;
+        .logo-brand {
+            font-size: 28px;
+            font-weight: 800;
             background: var(--ig-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            letter-spacing: -1px;
+            position: relative;
+        }
+
+        .logo-brand::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--ig-gradient);
+            border-radius: 2px;
+            opacity: 0.6;
+        }
+
+        .logo-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border-color);
+        }
+
+        .logo-tagline {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 400;
+            letter-spacing: 0.3px;
         }
 
         .header-actions {
@@ -475,8 +491,9 @@
     <div class="app">
         <header>
             <div class="logo">
-                <div class="logo-icon">📐</div>
-                <span class="logo-text">Innie</span>
+                <span class="logo-brand">Innie</span>
+                <span class="logo-divider"></span>
+                <span class="logo-tagline">Split. Post. Impress.</span>
             </div>
             <div class="header-actions">
                 <a href="https://github.com/yourusername/innie" target="_blank" class="btn btn-secondary btn-sm">⭐ GitHub</a>
