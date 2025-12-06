@@ -61,7 +61,7 @@
 ### Desktop Version
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/innie.git
+git clone https://github.com/govinda-vurjana/Innie.git
 cd innie
 
 # Install dependencies
