@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://govinda-vurjana.github.io/Innie/">🚀 Launch Web App</a> •
+  <a href="https://govinda-vurjana.github.io/Innie">🚀 Launch Web App</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-features">Features</a> •
   <a href="#-how-it-works">How It Works</a>
@@ -54,7 +54,7 @@
 
 ### Web Version (No Install)
 
-👉 **[Launch Innie Web App](https://govinda-vurjana.github.io/Innie/)**
+👉 **[Launch Innie Web App](https://govinda-vurjana.github.io/Innie)**
 
 Just open in your browser — no installation required. Works on any device.
 
@@ -152,7 +152,7 @@ MIT License — feel free to use in your projects.
 </p>
 
 <p align="center">
-  <a href="https://govinda-vurjana.github.io/Innie/">
+  <a href="https://govinda-vurjana.github.io/Innie">
     <img src="https://img.shields.io/badge/Try%20Innie-Online-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Try Innie Online"/>
   </a>
 </p>
