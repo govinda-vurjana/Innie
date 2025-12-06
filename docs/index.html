@@ -610,7 +610,7 @@
                         ✨ Render Preview
                     </button>
                     <button class="btn btn-secondary" id="saveBtn">
-                        📦 Download ZIP
+                        📥 Download Images
                     </button>
                     <button class="btn btn-danger" id="clearBtn">
                         🗑️ Clear All
@@ -641,54 +641,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="app.js"></script>
-    <script>
-        // Drag and drop enhancement
-        const dropZone = document.getElementById('dropZone');
-        const imageInput = document.getElementById('imageInput');
-
-        dropZone.addEventListener('click', () => imageInput.click());
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                imageInput.files = files;
-                imageInput.dispatchEvent(new Event('change'));
-            }
-        });
-
-        // Update grid badge
-        document.getElementById('gridCount').addEventListener('change', (e) => {
-            const count = e.target.value;
-            const rows = count / 3;
-            document.getElementById('gridBadge').textContent = `${rows} × 3`;
-        });
-
-        // Add data-index to grid cells
-        function updateGridCellIndices() {
-            document.querySelectorAll('.grid-cell').forEach((cell, i) => {
-                cell.setAttribute('data-index', i + 1);
-            });
-        }
-
-        // Override updateGridDisplay to add indices
-        const originalUpdateGridDisplay = updateGridDisplay;
-        updateGridDisplay = function () {
-            originalUpdateGridDisplay();
-            updateGridCellIndices();
-        };
-        updateGridDisplay();
-    </script>
 </body>
 
 </html>

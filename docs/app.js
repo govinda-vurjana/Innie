@@ -24,13 +24,51 @@ const statusEl = document.getElementById('status');
 
 // Event Listeners
 imageInput.addEventListener('change', handleImageSelect);
-gridCount.addEventListener('change', updateGridDisplay);
+gridCount.addEventListener('change', handleGridChange);
 renderBtn.addEventListener('click', renderPreview);
 saveBtn.addEventListener('click', downloadZip);
 clearBtn.addEventListener('click', clearAll);
 
+// Drop zone click to trigger file input
+dropZone.addEventListener('click', (e) => {
+    if (e.target !== imageInput) {
+        imageInput.click();
+    }
+});
+
+// Drag and drop
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        imageInput.files = files;
+        imageInput.dispatchEvent(new Event('change'));
+    }
+});
+
 // Initialize grid display
 updateGridDisplay();
+
+function handleGridChange() {
+    updateGridDisplay();
+    // Update badge
+    const gridBadge = document.getElementById('gridBadge');
+    if (gridBadge) {
+        const count = gridCount.value;
+        const rows = count / 3;
+        gridBadge.textContent = `${rows} × 3`;
+    }
+}
 
 function handleImageSelect(e) {
     const file = e.target.files[0];
@@ -38,7 +76,7 @@ function handleImageSelect(e) {
 
     sourceName = file.name.replace(/\.[^/.]+$/, '');
     fileName.textContent = file.name;
-    
+
     // Update drop zone text
     const uploadText = dropZone.querySelector('.upload-text');
     if (uploadText) {
@@ -59,17 +97,17 @@ function handleImageSelect(e) {
 
 function updateGridDisplay() {
     const count = parseInt(gridCount.value);
-    const rows = count / 3;
-    
+
     previewGrid.innerHTML = '';
     for (let i = 1; i <= count; i++) {
         const cell = document.createElement('div');
         cell.className = 'grid-cell';
         cell.id = `cell-${i}`;
+        cell.setAttribute('data-index', i);
         cell.textContent = `Grid ${i}`;
         previewGrid.appendChild(cell);
     }
-    
+
     tiles = [];
 }
 
@@ -192,7 +230,7 @@ function renderPreview() {
                 const fb = topM + ch - 1;
 
                 if (frameStyleVal === 'outer') {
-                    // Frame only on outer edges
+                    // Frame only on outer edges of the complete grid
                     for (let t = 0; t < frameThick; t++) {
                         if (r === 0) drawLine(ctx, fl, ft + t, fr, ft + t);
                         if (r === rows - 1) drawLine(ctx, fl, fb - t, fr, fb - t);
@@ -200,12 +238,28 @@ function renderPreview() {
                         if (c === cols - 1) drawLine(ctx, fr - t, ft, fr - t, fb);
                     }
                 } else {
-                    // Individual frame on each tile's content
-                    for (let t = 0; t < frameThick; t++) {
-                        drawLine(ctx, leftM, topM + t, leftM + cw - 1, topM + t);
-                        drawLine(ctx, leftM, topM + ch - 1 - t, leftM + cw - 1, topM + ch - 1 - t);
-                        drawLine(ctx, leftM + t, topM, leftM + t, topM + ch - 1);
-                        drawLine(ctx, leftM + cw - 1 - t, topM, leftM + cw - 1 - t, topM + ch - 1);
+                    // Individual frame - behavior depends on mode
+                    if (modeVal === 'fit') {
+                        // FIT MODE: Get actual image bounds (excluding black padding)
+                        const bounds = getImageBounds(ctx, leftM, topM, cw, ch);
+                        if (bounds) {
+                            const { ix0, iy0, ix1, iy1 } = bounds;
+                            // Draw frame only on outer grid edges, but at actual image bounds
+                            for (let t = 0; t < frameThick; t++) {
+                                if (r === 0) drawLine(ctx, ix0, iy0 + t, ix1, iy0 + t);
+                                if (r === rows - 1) drawLine(ctx, ix0, iy1 - t, ix1, iy1 - t);
+                                if (c === 0) drawLine(ctx, ix0 + t, iy0, ix0 + t, iy1);
+                                if (c === cols - 1) drawLine(ctx, ix1 - t, iy0, ix1 - t, iy1);
+                            }
+                        }
+                    } else {
+                        // COVER MODE: Full rectangle around content in every tile
+                        for (let t = 0; t < frameThick; t++) {
+                            drawLine(ctx, fl, ft + t, fr, ft + t);           // Top
+                            drawLine(ctx, fl, fb - t, fr, fb - t);           // Bottom
+                            drawLine(ctx, fl + t, ft, fl + t, fb);           // Left
+                            drawLine(ctx, fr - t, ft, fr - t, fb);           // Right
+                        }
                     }
                 }
             }
@@ -233,13 +287,47 @@ function drawLine(ctx, x1, y1, x2, y2) {
     ctx.stroke();
 }
 
+// Get bounding box of non-black pixels in a region
+function getImageBounds(ctx, startX, startY, width, height) {
+    const imageData = ctx.getImageData(startX, startY, width, height);
+    const data = imageData.data;
+
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+
+            // Check if pixel is not pure black (threshold for near-black)
+            if (r > 5 || g > 5 || b > 5) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+
+    if (maxX < 0) return null; // No non-black pixels found
+
+    return {
+        ix0: startX + minX,
+        iy0: startY + minY,
+        ix1: startX + maxX,
+        iy1: startY + maxY
+    };
+}
+
 function resizeCover(ctx, img, targetW, targetH) {
     const scale = Math.max(targetW / img.width, targetH / img.height);
     const newW = Math.ceil(img.width * scale);
     const newH = Math.ceil(img.height * scale);
     const left = (newW - targetW) / 2;
     const top = (newH - targetH) / 2;
-    
+
     ctx.drawImage(img, -left, -top, newW, newH);
 }
 
@@ -249,7 +337,7 @@ function resizeFit(ctx, img, targetW, targetH) {
     const newH = Math.round(img.height * scale);
     const left = (targetW - newW) / 2;
     const top = (targetH - newH) / 2;
-    
+
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, targetW, targetH);
     ctx.drawImage(img, left, top, newW, newH);
@@ -261,6 +349,16 @@ async function downloadZip() {
         return;
     }
 
+    const useZip = confirm('Download as ZIP file?\n\nClick OK for ZIP (may trigger Windows security warning)\nClick Cancel to download individual PNG files');
+
+    if (useZip) {
+        await downloadAsZip();
+    } else {
+        await downloadIndividualFiles();
+    }
+}
+
+async function downloadAsZip() {
     setStatus('Creating ZIP file...');
 
     const zip = new JSZip();
@@ -270,22 +368,57 @@ async function downloadZip() {
     for (let i = 0; i < tiles.length; i++) {
         const dataUrl = tiles[i].toDataURL('image/png');
         const base64 = dataUrl.split(',')[1];
-        folder.file(`grid_${String(i + 1).padStart(2, '0')}.png`, base64, {base64: true});
+        folder.file(`grid_${String(i + 1).padStart(2, '0')}.png`, base64, { base64: true });
     }
 
     // Create and add preview
     const previewCanvas = createPreviewImage();
     const previewData = previewCanvas.toDataURL('image/png').split(',')[1];
-    folder.file('preview_grid.png', previewData, {base64: true});
+    folder.file('preview_grid.png', previewData, { base64: true });
 
     // Generate and download
-    const content = await zip.generateAsync({type: 'blob'});
+    const content = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(content);
     link.download = `${sourceName}_grid_${gridCount.value}.zip`;
     link.click();
 
-    setStatus('ZIP downloaded successfully');
+    setStatus('ZIP downloaded - if blocked by Windows, use individual download');
+}
+
+async function downloadIndividualFiles() {
+    setStatus('Downloading files...');
+    
+    const prefix = `${sourceName}_grid${gridCount.value}`;
+    
+    // Download each tile with a small delay to prevent browser blocking
+    for (let i = 0; i < tiles.length; i++) {
+        await downloadCanvas(tiles[i], `${prefix}_${String(i + 1).padStart(2, '0')}.png`);
+        await sleep(100);
+    }
+    
+    // Download preview
+    const previewCanvas = createPreviewImage();
+    await downloadCanvas(previewCanvas, `${prefix}_preview.png`);
+    
+    setStatus(`Downloaded ${tiles.length + 1} files`);
+}
+
+function downloadCanvas(canvas, filename) {
+    return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            resolve();
+        }, 'image/png');
+    });
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function createPreviewImage() {
@@ -316,13 +449,13 @@ function clearAll() {
     tiles = [];
     fileName.textContent = '';
     imageInput.value = '';
-    
+
     // Reset drop zone text
     const uploadText = dropZone.querySelector('.upload-text');
     if (uploadText) {
         uploadText.innerHTML = '<strong>Click to upload</strong> or drag & drop';
     }
-    
+
     updateGridDisplay();
     setStatus('Cleared all');
 }
