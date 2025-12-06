@@ -478,10 +478,163 @@
             color: #4ade80;
         }
 
+        /* Mobile Styles */
         @media (max-width: 768px) {
-            .sidebar { width: 100%; position: fixed; bottom: 0; height: auto; max-height: 50vh; z-index: 10; }
-            .preview-area { padding-bottom: 200px; }
-            .grid-cell { width: 100px; }
+            html, body {
+                overflow: auto;
+                height: auto;
+            }
+
+            .app {
+                height: auto;
+                min-height: 100vh;
+            }
+
+            header {
+                padding: 10px 16px;
+            }
+
+            .logo-brand {
+                font-size: 22px;
+            }
+
+            .logo-divider, .logo-tagline {
+                display: none;
+            }
+
+            .header-actions .btn {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+
+            .main {
+                flex-direction: column;
+                overflow: visible;
+            }
+
+            /* Preview first on mobile */
+            .preview-area {
+                order: 1;
+                padding: 20px 16px;
+                min-height: auto;
+            }
+
+            .sidebar {
+                order: 2;
+                width: 100%;
+                border-right: none;
+                border-top: 1px solid var(--border-color);
+                position: relative;
+                max-height: none;
+                overflow: visible;
+            }
+
+            .preview-grid {
+                gap: 2px;
+                padding: 2px;
+                border-radius: 10px;
+            }
+
+            .grid-cell {
+                width: calc((100vw - 52px) / 3);
+                max-width: 120px;
+                border-radius: 4px;
+            }
+
+            .preview-badge {
+                margin-top: 12px;
+                font-size: 11px;
+                padding: 5px 12px;
+            }
+
+            .sidebar-section {
+                padding: 14px 16px;
+            }
+
+            .section-label {
+                font-size: 9px;
+                margin-bottom: 10px;
+            }
+
+            .upload-zone {
+                padding: 16px 12px;
+            }
+
+            .upload-icon {
+                font-size: 24px;
+                margin-bottom: 6px;
+            }
+
+            .upload-text {
+                font-size: 12px;
+            }
+
+            .image-thumb img {
+                height: 100px;
+            }
+
+            .control-row {
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .control-item label {
+                font-size: 10px;
+                margin-bottom: 4px;
+            }
+
+            .control-item select,
+            .control-item input[type="number"] {
+                padding: 7px 8px;
+                font-size: 12px;
+            }
+
+            .checkbox-row {
+                margin-bottom: 10px;
+            }
+
+            .checkbox-label {
+                font-size: 12px;
+            }
+
+            .sidebar-actions {
+                padding: 14px 16px;
+                flex-direction: row;
+                gap: 10px;
+            }
+
+            .sidebar-actions .btn {
+                flex: 1;
+                padding: 12px 10px;
+                font-size: 13px;
+            }
+
+            .toast {
+                bottom: 16px;
+                left: 16px;
+                right: 16px;
+                transform: translateX(0) translateY(100px);
+                text-align: center;
+            }
+
+            .toast.show {
+                transform: translateX(0) translateY(0);
+            }
+        }
+
+        /* Small phones */
+        @media (max-width: 380px) {
+            .grid-cell {
+                width: calc((100vw - 44px) / 3);
+            }
+
+            .sidebar-actions {
+                flex-direction: column;
+            }
+
+            .sidebar-actions .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
