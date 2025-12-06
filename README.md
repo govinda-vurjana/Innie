@@ -2,12 +2,10 @@
   <img src="https://img.shields.io/badge/Innie-Instagram%20Grid%20Splitter-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Innie"/>
 </p>
 
-<h1 align="center">
-  <span style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);">✨ Innie</span>
-</h1>
+<h1 align="center">Innie</h1>
 
 <p align="center">
-  <strong>Split your images into perfect Instagram grid layouts</strong>
+  <strong>Split. Post. Impress.</strong>
 </p>
 
 <p align="center">
@@ -17,10 +15,9 @@
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> •
+  <a href="https://govinda-vurjana.github.io/Innie/">🚀 Launch Web App</a> •
   <a href="#-quick-start">Quick Start</a> •
-  <a href="#-web-version">Web Version</a> •
-  <a href="#-desktop-app">Desktop App</a> •
+  <a href="#-features">Features</a> •
   <a href="#-how-it-works">How It Works</a>
 </p>
 
@@ -56,13 +53,17 @@
 ## 🚀 Quick Start
 
 ### Web Version (No Install)
-👉 **[Launch Innie Web App](https://yourusername.github.io/innie)**
+
+👉 **[Launch Innie Web App](https://govinda-vurjana.github.io/Innie/)**
+
+Just open in your browser — no installation required. Works on any device.
 
 ### Desktop Version
+
 ```bash
 # Clone the repo
 git clone https://github.com/govinda-vurjana/Innie.git
-cd innie
+cd Innie
 
 # Install dependencies
 pip install -r requirements.txt
@@ -75,20 +76,14 @@ python innie_ui.py
 
 The web version runs entirely in your browser — no uploads, no server, complete privacy.
 
-**Features:**
 - 📁 Load images from your device
 - 👁️ Real-time preview
-- 📦 Download as ZIP with all tiles
+- 📦 Download as ZIP or individual PNGs
 
 ## 🖥️ Desktop App
 
 The Python desktop app offers the full experience with a native UI.
 
-```bash
-python innie_ui.py
-```
-
-**Controls:**
 | Setting | Description |
 |---------|-------------|
 | Grid Count | 3 (1×3), 6 (2×3), or 9 (3×3) |
@@ -105,6 +100,7 @@ python innie_ui.py
 4. **Save** — tiles are exported with proper naming
 
 ### Output Structure
+
 ```
 your_image_grid_6/
 ├── grid_01.png
@@ -117,7 +113,9 @@ your_image_grid_6/
 ```
 
 ### Upload Order
+
 Instagram displays the **most recent post at top-left**. Upload in reverse order:
+
 ```
 grid_06 → grid_05 → grid_04 → grid_03 → grid_02 → grid_01
 ```
@@ -126,25 +124,9 @@ grid_06 → grid_05 → grid_04 → grid_03 → grid_02 → grid_01
 
 ### Outer Frame
 Frame appears only on the outer boundary of the complete grid.
-```
-┌──────────────────────────┐
-│ ┌──────┬──────┬──────┐   │
-│ │      │      │      │   │
-│ ├──────┼──────┼──────┤   │
-│ │      │      │      │   │
-│ └──────┴──────┴──────┘   │
-└──────────────────────────┘
-```
 
 ### Individual Frame
 Each tile gets its own border around the image content.
-```
-┌────┐ ┌────┐ ┌────┐
-│┌──┐│ │┌──┐│ │┌──┐│
-││  ││ ││  ││ ││  ││
-│└──┘│ │└──┘│ │└──┘│
-└────┘ └────┘ └────┘
-```
 
 ## 📋 Requirements
 
@@ -170,7 +152,7 @@ MIT License — feel free to use in your projects.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Instagram"/>
-  <img src="https://img.shields.io/badge/Grid-833AB4?style=for-the-badge&logo=grid&logoColor=white" alt="Grid"/>
-  <img src="https://img.shields.io/badge/Aesthetic-F77737?style=for-the-badge&logo=aesthetic&logoColor=white" alt="Aesthetic"/>
+  <a href="https://govinda-vurjana.github.io/Innie/">
+    <img src="https://img.shields.io/badge/Try%20Innie-Online-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Try Innie Online"/>
+  </a>
 </p>

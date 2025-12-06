@@ -4,21 +4,37 @@ from PIL import Image, ImageTk, ImageDraw
 import os
 import math
 
-
 # Constants
 POST_W = 1080
 POST_H = 1350
+
+# Colors (Instagram-inspired)
+COLORS = {
+    "bg_dark": "#0a0a0a",
+    "bg_card": "#141414",
+    "bg_input": "#1a1a1a",
+    "border": "#2a2a2a",
+    "text": "#ffffff",
+    "text_secondary": "#888888",
+    "text_muted": "#555555",
+    "pink": "#E4405F",
+    "purple": "#833AB4",
+    "orange": "#F77737",
+    "green": "#28a745",
+}
 
 
 class InnieUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Instagram Grid Splitter")
-        self.root.configure(bg="#1a1a1a")
+        self.root.title("Innie — Instagram Grid Splitter")
+        self.root.configure(bg=COLORS["bg_dark"])
+        self.root.minsize(900, 600)
         
         # State
         self.source_image = None
         self.source_path = None
+        self.thumb_photo = None
         self.grid_count = 6
         self.rows = 2
         self.cols = 3
@@ -26,110 +42,311 @@ class InnieUI:
         self.margin_side = 80
         self.frame_enabled = True
         self.frame_thickness = 4
-        self.mode = "cover"  # cover or fit
+        self.frame_style = "outer"
+        self.mode = "cover"
         
         # Generated tiles
-        self.tiles = {}  # {index: PIL Image}
-        self.preview_image = None
-        
-        # Display
-        self.display_w = 180
-        self.display_h = 225
+        self.tiles = {}
         self.photo_images = {}
         self.labels = {}
         
+        # Display sizes
+        self.cell_w = 140
+        self.cell_h = 175
+        
+        self.setup_styles()
         self.setup_ui()
+    
+    def setup_styles(self):
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Combobox style
+        style.configure("Dark.TCombobox",
+            fieldbackground=COLORS["bg_input"],
+            background=COLORS["bg_input"],
+            foreground=COLORS["text"],
+            bordercolor=COLORS["border"],
+            arrowcolor=COLORS["text_secondary"],
+            selectbackground=COLORS["pink"],
+            selectforeground=COLORS["text"]
+        )
+        style.map("Dark.TCombobox",
+            fieldbackground=[("readonly", COLORS["bg_input"])],
+            selectbackground=[("readonly", COLORS["bg_input"])],
+            selectforeground=[("readonly", COLORS["text"])]
+        )
     
     def setup_ui(self):
         # Main container
-        main_frame = tk.Frame(self.root, bg="#1a1a1a")
-        main_frame.pack(padx=15, pady=10)
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(1, weight=1)
         
-        # Left panel - Controls
-        left_panel = tk.Frame(main_frame, bg="#1a1a1a")
-        left_panel.pack(side=tk.LEFT, padx=(0, 15), anchor=tk.N)
+        # Header
+        self.create_header()
         
-        # Image selection
-        img_frame = tk.LabelFrame(left_panel, text="Source Image", bg="#1a1a1a", fg="white", padx=10, pady=5)
-        img_frame.pack(fill=tk.X, pady=5)
+        # Sidebar
+        self.create_sidebar()
         
-        self.img_label = tk.Label(img_frame, text="No image selected", bg="#1a1a1a", fg="#888", width=25, anchor=tk.W)
-        self.img_label.pack(side=tk.LEFT)
+        # Preview area
+        self.create_preview_area()
+    
+    def create_header(self):
+        header = tk.Frame(self.root, bg=COLORS["bg_card"], height=50)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew")
+        header.grid_propagate(False)
         
-        tk.Button(img_frame, text="Browse", command=self.select_image, bg="#4a9eff", fg="white").pack(side=tk.RIGHT)
+        # Brand
+        brand_frame = tk.Frame(header, bg=COLORS["bg_card"])
+        brand_frame.pack(side=tk.LEFT, padx=20, pady=10)
         
-        # Grid settings
-        grid_frame = tk.LabelFrame(left_panel, text="Grid Settings", bg="#1a1a1a", fg="white", padx=10, pady=5)
-        grid_frame.pack(fill=tk.X, pady=5)
+        brand = tk.Label(brand_frame, text="Innie", font=("Helvetica", 20, "bold"),
+                        bg=COLORS["bg_card"], fg=COLORS["pink"])
+        brand.pack(side=tk.LEFT)
         
-        tk.Label(grid_frame, text="Grid Count:", bg="#1a1a1a", fg="white").grid(row=0, column=0, sticky=tk.W, pady=2)
+        divider = tk.Frame(brand_frame, bg=COLORS["border"], width=1, height=20)
+        divider.pack(side=tk.LEFT, padx=12)
+        
+        tagline = tk.Label(brand_frame, text="Split. Post. Impress.",
+                          font=("Helvetica", 10), bg=COLORS["bg_card"], fg=COLORS["text_secondary"])
+        tagline.pack(side=tk.LEFT)
+        
+        # GitHub link
+        github = tk.Label(header, text="⭐ GitHub", font=("Helvetica", 10),
+                         bg=COLORS["bg_input"], fg=COLORS["text"], padx=12, pady=4, cursor="hand2")
+        github.pack(side=tk.RIGHT, padx=20)
+        github.bind("<Button-1>", lambda e: os.startfile("https://github.com/govinda-vurjana/Innie") if os.name == 'nt' else None)
+    
+    def create_sidebar(self):
+        sidebar = tk.Frame(self.root, bg=COLORS["bg_card"], width=280)
+        sidebar.grid(row=1, column=0, sticky="ns")
+        sidebar.grid_propagate(False)
+        
+        # Scrollable content
+        canvas = tk.Canvas(sidebar, bg=COLORS["bg_card"], highlightthickness=0)
+        scrollbar = tk.Scrollbar(sidebar, orient="vertical", command=canvas.yview)
+        content = tk.Frame(canvas, bg=COLORS["bg_card"])
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas.create_window((0, 0), window=content, anchor="nw", width=260)
+        
+        content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        
+        # Source Image Section
+        self.create_section(content, "SOURCE IMAGE")
+        self.create_image_upload(content)
+        
+        # Settings Section
+        self.create_section(content, "SETTINGS")
+        self.create_settings(content)
+        
+        # Frame Section
+        self.create_section(content, "FRAME")
+        self.create_frame_settings(content)
+        
+        # Actions
+        self.create_actions(content)
+    
+    def create_section(self, parent, title):
+        frame = tk.Frame(parent, bg=COLORS["bg_card"])
+        frame.pack(fill=tk.X, padx=16, pady=(16, 8))
+        
+        accent = tk.Frame(frame, bg=COLORS["pink"], width=3, height=12)
+        accent.pack(side=tk.LEFT, padx=(0, 8))
+        
+        label = tk.Label(frame, text=title, font=("Helvetica", 9, "bold"),
+                        bg=COLORS["bg_card"], fg=COLORS["text_muted"])
+        label.pack(side=tk.LEFT)
+    
+    def create_image_upload(self, parent):
+        container = tk.Frame(parent, bg=COLORS["bg_card"])
+        container.pack(fill=tk.X, padx=16, pady=4)
+        
+        # Upload zone
+        self.upload_zone = tk.Frame(container, bg=COLORS["bg_input"], 
+                                    highlightbackground=COLORS["border"], highlightthickness=2)
+        self.upload_zone.pack(fill=tk.X, ipady=20)
+        
+        upload_content = tk.Frame(self.upload_zone, bg=COLORS["bg_input"])
+        upload_content.pack(expand=True)
+        
+        icon = tk.Label(upload_content, text="🖼️", font=("Helvetica", 24), bg=COLORS["bg_input"])
+        icon.pack()
+        
+        text = tk.Label(upload_content, text="Click to upload", font=("Helvetica", 11),
+                       bg=COLORS["bg_input"], fg=COLORS["text_secondary"])
+        text.pack()
+        
+        self.upload_zone.bind("<Button-1>", lambda e: self.select_image())
+        upload_content.bind("<Button-1>", lambda e: self.select_image())
+        icon.bind("<Button-1>", lambda e: self.select_image())
+        text.bind("<Button-1>", lambda e: self.select_image())
+        
+        # Image thumbnail (hidden initially)
+        self.thumb_frame = tk.Frame(container, bg=COLORS["bg_input"])
+        
+        self.thumb_label = tk.Label(self.thumb_frame, bg=COLORS["bg_input"])
+        self.thumb_label.pack(fill=tk.X)
+        
+        info_frame = tk.Frame(self.thumb_frame, bg=COLORS["bg_input"])
+        info_frame.pack(fill=tk.X, padx=10, pady=8)
+        
+        self.filename_label = tk.Label(info_frame, text="", font=("Helvetica", 10),
+                                       bg=COLORS["bg_input"], fg=COLORS["text_secondary"], anchor="w")
+        self.filename_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        remove_btn = tk.Label(info_frame, text="✕", font=("Helvetica", 12, "bold"),
+                             bg=COLORS["pink"], fg="white", padx=6, pady=2, cursor="hand2")
+        remove_btn.pack(side=tk.RIGHT)
+        remove_btn.bind("<Button-1>", lambda e: self.clear_image())
+    
+    def create_settings(self, parent):
+        container = tk.Frame(parent, bg=COLORS["bg_card"])
+        container.pack(fill=tk.X, padx=16, pady=4)
+        
+        # Row 1: Grid + Mode
+        row1 = tk.Frame(container, bg=COLORS["bg_card"])
+        row1.pack(fill=tk.X, pady=4)
+        
+        # Grid
+        grid_frame = tk.Frame(row1, bg=COLORS["bg_card"])
+        grid_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
+        tk.Label(grid_frame, text="Grid", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.grid_var = tk.StringVar(value="6")
-        grid_menu = ttk.Combobox(grid_frame, textvariable=self.grid_var, values=["3", "6", "9"], width=8, state="readonly")
-        grid_menu.grid(row=0, column=1, pady=2)
-        grid_menu.bind("<<ComboboxSelected>>", self.on_grid_change)
+        grid_combo = ttk.Combobox(grid_frame, textvariable=self.grid_var, 
+                                  values=["3", "6", "9"], state="readonly", style="Dark.TCombobox")
+        grid_combo.pack(fill=tk.X, pady=2)
+        grid_combo.bind("<<ComboboxSelected>>", self.on_grid_change)
         
-        tk.Label(grid_frame, text="Mode:", bg="#1a1a1a", fg="white").grid(row=1, column=0, sticky=tk.W, pady=2)
+        # Mode
+        mode_frame = tk.Frame(row1, bg=COLORS["bg_card"])
+        mode_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        tk.Label(mode_frame, text="Mode", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.mode_var = tk.StringVar(value="cover")
-        mode_menu = ttk.Combobox(grid_frame, textvariable=self.mode_var, values=["cover", "fit"], width=8, state="readonly")
-        mode_menu.grid(row=1, column=1, pady=2)
+        mode_combo = ttk.Combobox(mode_frame, textvariable=self.mode_var,
+                                  values=["cover", "fit"], state="readonly", style="Dark.TCombobox")
+        mode_combo.pack(fill=tk.X, pady=2)
         
-        # Margins
-        margin_frame = tk.LabelFrame(left_panel, text="Margins (px)", bg="#1a1a1a", fg="white", padx=10, pady=5)
-        margin_frame.pack(fill=tk.X, pady=5)
+        # Row 2: Margins
+        row2 = tk.Frame(container, bg=COLORS["bg_card"])
+        row2.pack(fill=tk.X, pady=4)
         
-        tk.Label(margin_frame, text="Top/Bottom:", bg="#1a1a1a", fg="white").grid(row=0, column=0, sticky=tk.W, pady=2)
+        # Margin TB
+        mtb_frame = tk.Frame(row2, bg=COLORS["bg_card"])
+        mtb_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
+        tk.Label(mtb_frame, text="Margin TB", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.margin_tb_var = tk.StringVar(value="80")
-        tk.Entry(margin_frame, textvariable=self.margin_tb_var, width=10).grid(row=0, column=1, pady=2)
+        mtb_entry = tk.Entry(mtb_frame, textvariable=self.margin_tb_var, font=("Helvetica", 11),
+                            bg=COLORS["bg_input"], fg=COLORS["text"], insertbackground=COLORS["text"],
+                            relief="flat", highlightthickness=1, highlightbackground=COLORS["border"])
+        mtb_entry.pack(fill=tk.X, pady=2, ipady=4)
         
-        tk.Label(margin_frame, text="Left/Right:", bg="#1a1a1a", fg="white").grid(row=1, column=0, sticky=tk.W, pady=2)
+        # Margin LR
+        mlr_frame = tk.Frame(row2, bg=COLORS["bg_card"])
+        mlr_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        tk.Label(mlr_frame, text="Margin LR", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.margin_side_var = tk.StringVar(value="80")
-        tk.Entry(margin_frame, textvariable=self.margin_side_var, width=10).grid(row=1, column=1, pady=2)
+        mlr_entry = tk.Entry(mlr_frame, textvariable=self.margin_side_var, font=("Helvetica", 11),
+                            bg=COLORS["bg_input"], fg=COLORS["text"], insertbackground=COLORS["text"],
+                            relief="flat", highlightthickness=1, highlightbackground=COLORS["border"])
+        mlr_entry.pack(fill=tk.X, pady=2, ipady=4)
+    
+    def create_frame_settings(self, parent):
+        container = tk.Frame(parent, bg=COLORS["bg_card"])
+        container.pack(fill=tk.X, padx=16, pady=4)
         
-        # Frame settings
-        frame_settings = tk.LabelFrame(left_panel, text="Frame", bg="#1a1a1a", fg="white", padx=10, pady=5)
-        frame_settings.pack(fill=tk.X, pady=5)
-        
+        # Enable checkbox
         self.frame_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(frame_settings, text="Enable Frame", variable=self.frame_var, bg="#1a1a1a", fg="white",
-                       selectcolor="#333", activebackground="#1a1a1a").grid(row=0, column=0, columnspan=2, sticky=tk.W)
+        check_frame = tk.Frame(container, bg=COLORS["bg_card"])
+        check_frame.pack(fill=tk.X, pady=4)
         
-        tk.Label(frame_settings, text="Frame Style:", bg="#1a1a1a", fg="white").grid(row=1, column=0, sticky=tk.W, pady=2)
+        cb = tk.Checkbutton(check_frame, text="Enable Frame", variable=self.frame_var,
+                           font=("Helvetica", 11), bg=COLORS["bg_card"], fg=COLORS["text"],
+                           selectcolor=COLORS["bg_input"], activebackground=COLORS["bg_card"],
+                           activeforeground=COLORS["text"])
+        cb.pack(anchor="w")
+        
+        # Row: Style + Thickness
+        row = tk.Frame(container, bg=COLORS["bg_card"])
+        row.pack(fill=tk.X, pady=4)
+        
+        # Style
+        style_frame = tk.Frame(row, bg=COLORS["bg_card"])
+        style_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
+        tk.Label(style_frame, text="Style", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.frame_style_var = tk.StringVar(value="outer")
-        frame_style_menu = ttk.Combobox(frame_settings, textvariable=self.frame_style_var, 
-                                        values=["outer", "individual"], width=8, state="readonly")
-        frame_style_menu.grid(row=1, column=1, pady=2)
+        style_combo = ttk.Combobox(style_frame, textvariable=self.frame_style_var,
+                                   values=["outer", "individual"], state="readonly", style="Dark.TCombobox")
+        style_combo.pack(fill=tk.X, pady=2)
         
-        tk.Label(frame_settings, text="Thickness:", bg="#1a1a1a", fg="white").grid(row=2, column=0, sticky=tk.W, pady=2)
+        # Thickness
+        thick_frame = tk.Frame(row, bg=COLORS["bg_card"])
+        thick_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        tk.Label(thick_frame, text="Thickness", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
         self.frame_thick_var = tk.StringVar(value="4")
-        tk.Entry(frame_settings, textvariable=self.frame_thick_var, width=10).grid(row=2, column=1, pady=2)
+        thick_entry = tk.Entry(thick_frame, textvariable=self.frame_thick_var, font=("Helvetica", 11),
+                              bg=COLORS["bg_input"], fg=COLORS["text"], insertbackground=COLORS["text"],
+                              relief="flat", highlightthickness=1, highlightbackground=COLORS["border"])
+        thick_entry.pack(fill=tk.X, pady=2, ipady=4)
+    
+    def create_actions(self, parent):
+        container = tk.Frame(parent, bg=COLORS["bg_card"])
+        container.pack(fill=tk.X, padx=16, pady=20)
         
-        # Action buttons
-        action_frame = tk.Frame(left_panel, bg="#1a1a1a")
-        action_frame.pack(fill=tk.X, pady=10)
+        # Render button
+        render_btn = tk.Button(container, text="✨ Render", font=("Helvetica", 11, "bold"),
+                              bg=COLORS["pink"], fg="white", relief="flat", cursor="hand2",
+                              activebackground=COLORS["purple"], activeforeground="white",
+                              command=self.render_preview)
+        render_btn.pack(fill=tk.X, pady=4, ipady=8)
         
-        tk.Button(action_frame, text="Render Preview", command=self.render_preview, 
-                  bg="#28a745", fg="white", width=15, height=2).pack(pady=3)
+        # Download button
+        download_btn = tk.Button(container, text="📥 Download", font=("Helvetica", 11),
+                                bg=COLORS["bg_input"], fg=COLORS["text"], relief="flat", cursor="hand2",
+                                activebackground=COLORS["border"], activeforeground=COLORS["text"],
+                                highlightthickness=1, highlightbackground=COLORS["border"],
+                                command=self.save_to_folder)
+        download_btn.pack(fill=tk.X, pady=4, ipady=8)
+    
+    def create_preview_area(self):
+        preview_area = tk.Frame(self.root, bg=COLORS["bg_dark"])
+        preview_area.grid(row=1, column=1, sticky="nsew")
         
-        tk.Button(action_frame, text="Save to Folder", command=self.save_to_folder,
-                  bg="#4a9eff", fg="white", width=15, height=2).pack(pady=3)
+        # Center container
+        center = tk.Frame(preview_area, bg=COLORS["bg_dark"])
+        center.place(relx=0.5, rely=0.5, anchor="center")
         
-        tk.Button(action_frame, text="Discard / Clear", command=self.discard_all,
-                  bg="#ff4a4a", fg="white", width=15, height=2).pack(pady=3)
-        
-        # Right panel - Preview grid
-        right_panel = tk.Frame(main_frame, bg="#1a1a1a")
-        right_panel.pack(side=tk.LEFT, anchor=tk.N)
-        
-        tk.Label(right_panel, text="Preview", bg="#1a1a1a", fg="white", font=("Arial", 12, "bold")).pack(pady=(0, 5))
-        
-        self.grid_frame = tk.Frame(right_panel, bg="#1a1a1a")
+        # Grid container
+        self.grid_frame = tk.Frame(center, bg="#000000", padx=3, pady=3)
         self.grid_frame.pack()
         
         self.create_grid_display()
         
-        # Status bar
-        self.status_label = tk.Label(self.root, text="Select an image to begin", bg="#1a1a1a", fg="#888")
-        self.status_label.pack(pady=5)
+        # Badge
+        self.badge = tk.Label(center, text="Upload an image and click Render",
+                             font=("Helvetica", 10), bg=COLORS["bg_card"], fg=COLORS["text_secondary"],
+                             padx=12, pady=6)
+        self.badge.pack(pady=16)
     
     def create_grid_display(self):
         for widget in self.grid_frame.winfo_children():
@@ -142,12 +359,13 @@ class InnieUI:
             for col in range(self.cols):
                 index = row * self.cols + col + 1
                 
-                cell = tk.Frame(self.grid_frame, bg="#333", width=self.display_w, height=self.display_h,
-                                highlightbackground="#555", highlightthickness=1)
-                cell.grid(row=row, column=col, padx=1, pady=1)
+                cell = tk.Frame(self.grid_frame, bg=COLORS["bg_input"], 
+                               width=self.cell_w, height=self.cell_h)
+                cell.grid(row=row, column=col, padx=2, pady=2)
                 cell.pack_propagate(False)
                 
-                label = tk.Label(cell, text=f"Grid {index}", bg="#333", fg="#666", font=("Arial", 10))
+                label = tk.Label(cell, text=str(index), font=("Helvetica", 12),
+                                bg=COLORS["bg_input"], fg=COLORS["text_muted"])
                 label.pack(expand=True, fill=tk.BOTH)
                 
                 self.labels[index] = label
@@ -162,17 +380,42 @@ class InnieUI:
                 self.source_image = Image.open(path).convert("RGB")
                 self.source_path = path
                 filename = os.path.basename(path)
-                self.img_label.config(text=filename[:25] + "..." if len(filename) > 25 else filename)
-                self.update_status(f"Loaded: {self.source_image.size[0]}x{self.source_image.size[1]}")
+                
+                # Create thumbnail
+                thumb = self.source_image.copy()
+                thumb.thumbnail((248, 120), Image.LANCZOS)
+                self.thumb_photo = ImageTk.PhotoImage(thumb)
+                self.thumb_label.config(image=self.thumb_photo)
+                
+                # Update filename
+                self.filename_label.config(text=filename[:30] + "..." if len(filename) > 30 else filename)
+                
+                # Show thumbnail, hide upload zone
+                self.upload_zone.pack_forget()
+                self.thumb_frame.pack(fill=tk.X)
+                
+                self.badge.config(text=f"Loaded: {self.source_image.size[0]}×{self.source_image.size[1]}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {e}")
+    
+    def clear_image(self):
+        self.source_image = None
+        self.source_path = None
+        self.thumb_photo = None
+        self.tiles = {}
+        
+        # Hide thumbnail, show upload zone
+        self.thumb_frame.pack_forget()
+        self.upload_zone.pack(fill=tk.X, ipady=20)
+        
+        self.create_grid_display()
+        self.badge.config(text="Upload an image and click Render")
     
     def on_grid_change(self, event=None):
         self.grid_count = int(self.grid_var.get())
         self.rows = self.grid_count // 3
         self.create_grid_display()
         self.tiles = {}
-        self.update_status(f"Grid changed to {self.grid_count}")
     
     def render_preview(self):
         if not self.source_image:
@@ -193,195 +436,112 @@ class InnieUI:
         try:
             self.generate_tiles()
             self.display_tiles()
-            self.update_status("Preview rendered successfully")
+            self.badge.config(text="✓ Rendered successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to render: {e}")
     
     def generate_tiles(self):
         img = self.source_image
-        cols = self.cols
-        rows = self.rows
-        Ms = self.margin_side
-        Mt = self.margin_tb
+        cols, rows = self.cols, self.rows
+        Ms, Mt = self.margin_side, self.margin_tb
         
-        # Validate margins
         if Ms * 2 >= POST_W:
             raise ValueError("Side margins too large")
         if rows == 1 and Mt * 2 >= POST_H:
             raise ValueError("Top/bottom margins too large")
         
-        # Calculate content dimensions per cell (area where content can live inside each tile)
-        content_widths = []
-        for col in range(cols):
-            left_m = Ms if col == 0 else 0
-            right_m = Ms if col == cols - 1 else 0
-            content_widths.append(POST_W - left_m - right_m)
-        
+        content_widths = [POST_W - (Ms if c == 0 else 0) - (Ms if c == cols - 1 else 0) for c in range(cols)]
         content_heights = []
-        for row in range(rows):
-            if rows == 1:
-                top_m, bottom_m = Mt, Mt
-            else:
-                top_m = Mt if row == 0 else 0
-                bottom_m = Mt if row == rows - 1 else 0
+        for r in range(rows):
+            top_m = Mt if (rows == 1 or r == 0) else 0
+            bottom_m = Mt if (rows == 1 or r == rows - 1) else 0
             content_heights.append(POST_H - top_m - bottom_m)
         
-        W_visible = sum(content_widths)
-        H_visible = sum(content_heights)
+        W_visible, H_visible = sum(content_widths), sum(content_heights)
         
-        # Resize source image into a big canvas W_visible x H_visible
         if self.mode == "cover":
             img_resized = self.resize_cover(img, W_visible, H_visible)
-        else:  # fit
+        else:
             img_resized = self.resize_fit(img, W_visible, H_visible)
         
-        # Cumulative positions (split the big fitted image)
-        cum_w = [0]
-        for cw in content_widths[:-1]:
-            cum_w.append(cum_w[-1] + cw)
+        cum_w = [sum(content_widths[:i]) for i in range(cols)]
+        cum_h = [sum(content_heights[:i]) for i in range(rows)]
         
-        cum_h = [0]
-        for ch in content_heights[:-1]:
-            cum_h.append(cum_h[-1] + ch)
-        
-        # Generate each tile
         self.tiles = {}
         index = 1
         for r in range(rows):
             for c in range(cols):
                 x0, y0 = cum_w[c], cum_h[r]
-                x1, y1 = x0 + content_widths[c], y0 + content_heights[r]
-                tile_content = img_resized.crop((x0, y0, x1, y1))
+                tile_content = img_resized.crop((x0, y0, x0 + content_widths[c], y0 + content_heights[r]))
                 
-                # Margins for this tile (where content sits inside the post)
-                if rows == 1:
-                    top_m, bottom_m = Mt, Mt
-                else:
-                    top_m = Mt if r == 0 else 0
-                    bottom_m = Mt if r == rows - 1 else 0
+                top_m = Mt if (rows == 1 or r == 0) else 0
                 left_m = Ms if c == 0 else 0
-                # right margin is implicit as empty area on the right
                 
-                # Create post canvas
                 post = Image.new("RGB", (POST_W, POST_H), (0, 0, 0))
                 post.paste(tile_content, (left_m, top_m))
                 
-                # Draw frame
                 if self.frame_enabled:
                     draw = ImageDraw.Draw(post)
-
-                    # Detect actual image bounds inside tile_content (ignoring pure black background)
                     bbox = tile_content.getbbox()
-                    if bbox is not None:
-                        ix0, iy0, ix1, iy1 = bbox
-                        # convert to post coordinates
-                        fl = left_m + ix0
-                        ft = top_m + iy0
-                        fr = left_m + ix1 - 1
-                        fb = top_m + iy1 - 1
-                    else:
-                        # No non-black content; skip frame
-                        fl = ft = fr = fb = None
-
-                    if fl is not None:
-                        cw = fr - fl + 1
-                        ch = fb - ft + 1
-
+                    if bbox:
+                        fl, ft = left_m + bbox[0], top_m + bbox[1]
+                        fr, fb = left_m + bbox[2] - 1, top_m + bbox[3] - 1
+                        
                         if self.frame_style == "outer":
-                            # Frame only on outer edges of the complete grid (on image bounds)
-                            if r == 0:  # top row
+                            if r == 0:
                                 for t in range(self.frame_thickness):
                                     draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
-                            if r == rows - 1:  # bottom row
+                            if r == rows - 1:
                                 for t in range(self.frame_thickness):
                                     draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
-                            if c == 0:  # left column
+                            if c == 0:
                                 for t in range(self.frame_thickness):
                                     draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
-                            if c == cols - 1:  # right column
+                            if c == cols - 1:
                                 for t in range(self.frame_thickness):
                                     draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
-                        
-                        else:  # frame_style == "individual"
+                        else:
                             if self.mode == "fit":
-                                # FIT MODE: treat each tile as its own image; but still only draw
-                                # the segments that correspond to outer edges of the full grid.
-                                if r == 0:  # top
+                                if r == 0:
                                     for t in range(self.frame_thickness):
-                                        draw.line(
-                                            [(fl, ft + t), (fr, ft + t)],
-                                            fill="white",
-                                        )
-                                if r == rows - 1:  # bottom
+                                        draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
+                                if r == rows - 1:
                                     for t in range(self.frame_thickness):
-                                        draw.line(
-                                            [(fl, fb - t), (fr, fb - t)],
-                                            fill="white",
-                                        )
-                                if c == 0:  # left
+                                        draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
+                                if c == 0:
                                     for t in range(self.frame_thickness):
-                                        draw.line(
-                                            [(fl + t, ft), (fl + t, fb)],
-                                            fill="white",
-                                        )
-                                if c == cols - 1:  # right
+                                        draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
+                                if c == cols - 1:
                                     for t in range(self.frame_thickness):
-                                        draw.line(
-                                            [(fr - t, ft), (fr - t, fb)],
-                                            fill="white",
-                                        )
+                                        draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
                             else:
-                                # COVER MODE: full rectangle around the image bounds in every tile
                                 for t in range(self.frame_thickness):
-                                    # Top
-                                    draw.line(
-                                        [(fl, ft + t), (fr, ft + t)],
-                                        fill="white",
-                                    )
-                                    # Bottom
-                                    draw.line(
-                                        [(fl, fb - t), (fr, fb - t)],
-                                        fill="white",
-                                    )
-                                    # Left
-                                    draw.line(
-                                        [(fl + t, ft), (fl + t, fb)],
-                                        fill="white",
-                                    )
-                                    # Right
-                                    draw.line(
-                                        [(fr - t, ft), (fr - t, fb)],
-                                        fill="white",
-                                    )
+                                    draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
+                                    draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
+                                    draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
+                                    draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
                 
                 self.tiles[index] = post
                 index += 1
     
     def resize_cover(self, img, target_w, target_h):
-        orig_w, orig_h = img.size
-        scale = max(target_w / orig_w, target_h / orig_h)
-        new_w = int(math.ceil(orig_w * scale))
-        new_h = int(math.ceil(orig_h * scale))
+        scale = max(target_w / img.size[0], target_h / img.size[1])
+        new_w, new_h = int(math.ceil(img.size[0] * scale)), int(math.ceil(img.size[1] * scale))
         img_resized = img.resize((new_w, new_h), Image.LANCZOS)
-        left = (new_w - target_w) // 2
-        top = (new_h - target_h) // 2
+        left, top = (new_w - target_w) // 2, (new_h - target_h) // 2
         return img_resized.crop((left, top, left + target_w, top + target_h))
     
     def resize_fit(self, img, target_w, target_h):
-        orig_w, orig_h = img.size
-        scale = min(target_w / orig_w, target_h / orig_h)
-        new_w = int(round(orig_w * scale))
-        new_h = int(round(orig_h * scale))
+        scale = min(target_w / img.size[0], target_h / img.size[1])
+        new_w, new_h = int(round(img.size[0] * scale)), int(round(img.size[1] * scale))
         img_resized = img.resize((new_w, new_h), Image.LANCZOS)
         canvas = Image.new("RGB", (target_w, target_h), (0, 0, 0))
-        left = (target_w - new_w) // 2
-        top = (target_h - new_h) // 2
-        canvas.paste(img_resized, (left, top))
+        canvas.paste(img_resized, ((target_w - new_w) // 2, (target_h - new_h) // 2))
         return canvas
     
     def display_tiles(self):
         for index, tile in self.tiles.items():
-            display_img = tile.resize((self.display_w, self.display_h), Image.LANCZOS)
+            display_img = tile.resize((self.cell_w, self.cell_h), Image.LANCZOS)
             photo = ImageTk.PhotoImage(display_img)
             self.photo_images[index] = photo
             self.labels[index].config(image=photo, text="")
@@ -396,46 +556,24 @@ class InnieUI:
             return
         
         try:
-            # Auto-generate output folder next to source image
             source_dir = os.path.dirname(self.source_path)
             source_name = os.path.splitext(os.path.basename(self.source_path))[0]
             folder = os.path.join(source_dir, f"{source_name}_grid_{self.grid_count}")
-            
-            # Create folder if it doesn't exist
             os.makedirs(folder, exist_ok=True)
             
             for index, tile in self.tiles.items():
-                path = os.path.join(folder, f"grid_{index:02d}.png")
-                tile.save(path)
+                tile.save(os.path.join(folder, f"grid_{index:02d}.png"))
             
-            # Save preview
-            preview = self.create_preview_image()
+            preview = Image.new("RGB", (self.cols * POST_W, self.rows * POST_H), (0, 0, 0))
+            for index, tile in self.tiles.items():
+                row, col = (index - 1) // self.cols, (index - 1) % self.cols
+                preview.paste(tile, (col * POST_W, row * POST_H))
             preview.save(os.path.join(folder, "preview_grid.png"))
             
             messagebox.showinfo("Success", f"Saved {len(self.tiles)} images + preview to:\n{folder}")
-            self.update_status(f"Saved to {folder}")
+            self.badge.config(text=f"✓ Saved to {os.path.basename(folder)}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {e}")
-    
-    def create_preview_image(self):
-        preview = Image.new("RGB", (self.cols * POST_W, self.rows * POST_H), (0, 0, 0))
-        for index, tile in self.tiles.items():
-            row = (index - 1) // self.cols
-            col = (index - 1) % self.cols
-            preview.paste(tile, (col * POST_W, row * POST_H))
-        return preview
-    
-    def discard_all(self):
-        self.source_image = None
-        self.source_path = None
-        self.tiles = {}
-        self.photo_images = {}
-        self.img_label.config(text="No image selected")
-        self.create_grid_display()
-        self.update_status("Cleared all")
-    
-    def update_status(self, msg):
-        self.status_label.config(text=msg)
 
 
 def main():
@@ -444,9 +582,10 @@ def main():
     app = InnieUI(root)
     
     root.update_idletasks()
-    x = (root.winfo_screenwidth() // 2) - (root.winfo_width() // 2)
-    y = (root.winfo_screenheight() // 2) - (root.winfo_height() // 2)
-    root.geometry(f"+{x}+{y}")
+    w, h = 950, 650
+    x = (root.winfo_screenwidth() - w) // 2
+    y = (root.winfo_screenheight() - h) // 2
+    root.geometry(f"{w}x{h}+{x}+{y}")
     
     root.mainloop()
 
