@@ -276,6 +276,15 @@ async function downloadImages() {
         return;
     }
 
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    if (isIOS) {
+        // iOS: Show gallery modal for manual save
+        showImageGallery();
+        return;
+    }
+
     const useZip = confirm('Download as ZIP?\n\nOK = ZIP file\nCancel = Individual PNGs');
 
     if (useZip) {
@@ -303,12 +312,142 @@ async function downloadImages() {
 
         for (let i = 0; i < tiles.length; i++) {
             await downloadCanvas(tiles[i], `${prefix}_${String(i + 1).padStart(2, '0')}.png`);
-            await new Promise(r => setTimeout(r, 150));
+            await new Promise(r => setTimeout(r, 300));
         }
 
         await downloadCanvas(createPreviewImage(), `${prefix}_preview.png`);
         showToast(`Downloaded ${tiles.length + 1} files!`, true);
     }
+}
+
+// iOS Gallery Modal - allows users to long-press and save each image
+function showImageGallery() {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'iosGallery';
+    modal.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.95);
+        z-index: 1000;
+        overflow-y: auto;
+        padding: 20px;
+        padding-top: 60px;
+    `;
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕ Close';
+    closeBtn.style.cssText = `
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        background: #E4405F;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        z-index: 1001;
+    `;
+    closeBtn.onclick = () => modal.remove();
+
+    // Instructions
+    const instructions = document.createElement('div');
+    instructions.style.cssText = `
+        text-align: center;
+        color: #888;
+        font-size: 13px;
+        margin-bottom: 20px;
+        padding: 12px;
+        background: #1a1a1a;
+        border-radius: 10px;
+    `;
+    instructions.innerHTML = '📱 <strong>Long-press</strong> each image and tap <strong>"Add to Photos"</strong> to save';
+
+    // Image grid
+    const grid = document.createElement('div');
+    grid.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        max-width: 500px;
+        margin: 0 auto;
+    `;
+
+    // Add tiles
+    tiles.forEach((canvas, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `
+            background: #141414;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        `;
+
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        img.style.cssText = 'width: 100%; display: block;';
+
+        const label = document.createElement('div');
+        label.textContent = `Grid ${i + 1}`;
+        label.style.cssText = `
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            text-align: center;
+        `;
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(label);
+        grid.appendChild(wrapper);
+    });
+
+    // Add preview
+    const previewWrapper = document.createElement('div');
+    previewWrapper.style.cssText = `
+        grid-column: span 2;
+        background: #141414;
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+    `;
+
+    const previewImg = document.createElement('img');
+    previewImg.src = createPreviewImage().toDataURL('image/png');
+    previewImg.style.cssText = 'width: 100%; display: block;';
+
+    const previewLabel = document.createElement('div');
+    previewLabel.textContent = 'Preview (Full Grid)';
+    previewLabel.style.cssText = `
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 8px;
+        font-size: 12px;
+        text-align: center;
+    `;
+
+    previewWrapper.appendChild(previewImg);
+    previewWrapper.appendChild(previewLabel);
+    grid.appendChild(previewWrapper);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(instructions);
+    modal.appendChild(grid);
+    document.body.appendChild(modal);
+
+    showToast('Long-press images to save', true);
 }
 
 function downloadCanvas(canvas, filename) {
