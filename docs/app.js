@@ -138,10 +138,17 @@ function renderPreview() {
     }
 
     // Edge tiles padding (applied inside content area)
+    // For 1x3 grid: middle tile (col 1) also gets both left and right padding
     const edgePadding = [];
     for (let c = 0; c < cols; c++) {
-        const padLeft = (c === cols - 1) ? edgeMargin : 0;  // Col 2 (tiles 3,6,9): LEFT padding
-        const padRight = (c === 0) ? edgeMargin : 0;        // Col 0 (tiles 1,4,7): RIGHT padding
+        let padLeft = (c === cols - 1) ? edgeMargin : 0;   // Col 2 (tiles 3,6,9): LEFT padding
+        let padRight = (c === 0) ? edgeMargin : 0;         // Col 0 (tiles 1,4,7): RIGHT padding
+        
+        // Special case: 1x3 grid - middle tile gets both sides
+        if (rows === 1 && c === 1) {
+            padLeft = edgeMargin;
+            padRight = edgeMargin;
+        }
         edgePadding.push({ padLeft, padRight });
     }
 

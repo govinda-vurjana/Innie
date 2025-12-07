@@ -492,10 +492,16 @@ class InnieUI:
             content_heights.append(POST_H - top_m - bottom_m)
         
         # Edge tiles padding: col 0 gets RIGHT padding, col 2 gets LEFT padding
+        # For 1x3 grid: middle tile (col 1) also gets both left and right padding
         edge_padding = []
         for c in range(cols):
             pad_left = edge_margin if c == cols - 1 else 0   # Col 2 (tiles 3,6,9): LEFT padding
             pad_right = edge_margin if c == 0 else 0         # Col 0 (tiles 1,4,7): RIGHT padding
+            
+            # Special case: 1x3 grid - middle tile gets both sides
+            if rows == 1 and c == 1:
+                pad_left = edge_margin
+                pad_right = edge_margin
             edge_padding.append({'pad_left': pad_left, 'pad_right': pad_right})
         
         # Actual image content = content area minus edge padding
