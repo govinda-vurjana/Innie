@@ -19,6 +19,9 @@ const marginSide = document.getElementById('marginSide');
 const frameEnabled = document.getElementById('frameEnabled');
 const frameStyle = document.getElementById('frameStyle');
 const frameThickness = document.getElementById('frameThickness');
+const edgeTilesEnabled = document.getElementById('edgeTilesEnabled');
+const edgeTilesRow = document.getElementById('edgeTilesRow');
+const edgeTilesMargin = document.getElementById('edgeTilesMargin');
 const renderBtn = document.getElementById('renderBtn');
 const saveBtn = document.getElementById('saveBtn');
 const previewGrid = document.getElementById('previewGrid');
@@ -30,6 +33,9 @@ gridCount.addEventListener('change', updateGridDisplay);
 renderBtn.addEventListener('click', renderPreview);
 saveBtn.addEventListener('click', downloadImages);
 removeImage.addEventListener('click', clearImage);
+edgeTilesEnabled.addEventListener('change', () => {
+    edgeTilesRow.style.display = edgeTilesEnabled.checked ? 'flex' : 'none';
+});
 
 // Drop zone events
 dropZone.addEventListener('click', () => imageInput.click());
@@ -114,6 +120,8 @@ function renderPreview() {
     const frameOn = frameEnabled.checked;
     const frameStyleVal = frameStyle.value;
     const frameThick = parseInt(frameThickness.value);
+    const edgeEnabled = edgeTilesEnabled.checked;
+    const edgeMargin = edgeEnabled ? (parseInt(edgeTilesMargin.value) || 0) : 0;
 
     if (Ms * 2 >= POST_W || (rows === 1 && Mt * 2 >= POST_H)) {
         showToast('Margins too large');
@@ -121,12 +129,24 @@ function renderPreview() {
     }
 
     // Calculate content dimensions
+    // Edge margin: col 0 (tiles 1,4,7) gets RIGHT margin, col 2 (tiles 3,6,9) gets LEFT margin
     const contentWidths = [];
     for (let c = 0; c < cols; c++) {
         const leftM = c === 0 ? Ms : 0;
         const rightM = c === cols - 1 ? Ms : 0;
         contentWidths.push(POST_W - leftM - rightM);
     }
+
+    // Edge tiles padding (applied inside content area)
+    const edgePadding = [];
+    for (let c = 0; c < cols; c++) {
+        const padLeft = (c === cols - 1) ? edgeMargin : 0;  // Col 2 (tiles 3,6,9): LEFT padding
+        const padRight = (c === 0) ? edgeMargin : 0;        // Col 0 (tiles 1,4,7): RIGHT padding
+        edgePadding.push({ padLeft, padRight });
+    }
+
+    // Actual image content = content area minus edge padding
+    const actualContentWidths = contentWidths.map((w, c) => w - edgePadding[c].padLeft - edgePadding[c].padRight);
 
     const contentHeights = [];
     for (let r = 0; r < rows; r++) {
@@ -135,7 +155,7 @@ function renderPreview() {
         contentHeights.push(POST_H - topM - bottomM);
     }
 
-    const W_visible = contentWidths.reduce((a, b) => a + b, 0);
+    const W_visible = actualContentWidths.reduce((a, b) => a + b, 0);
     const H_visible = contentHeights.reduce((a, b) => a + b, 0);
 
     // Resize source image
@@ -150,9 +170,9 @@ function renderPreview() {
         resizeFit(resizedCtx, sourceImage, W_visible, H_visible);
     }
 
-    // Cumulative positions
+    // Cumulative positions (based on actual content widths for slicing)
     const cumW = [0];
-    for (let i = 0; i < contentWidths.length - 1; i++) cumW.push(cumW[i] + contentWidths[i]);
+    for (let i = 0; i < actualContentWidths.length - 1; i++) cumW.push(cumW[i] + actualContentWidths[i]);
     const cumH = [0];
     for (let i = 0; i < contentHeights.length - 1; i++) cumH.push(cumH[i] + contentHeights[i]);
 
@@ -163,9 +183,13 @@ function renderPreview() {
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const x0 = cumW[c], y0 = cumH[r];
-            const cw = contentWidths[c], ch = contentHeights[r];
+            const srcW = actualContentWidths[c], srcH = contentHeights[r];
             const topM = rows === 1 ? Mt : (r === 0 ? Mt : 0);
             const leftM = c === 0 ? Ms : 0;
+            
+            // Edge padding for this column
+            const ePadLeft = edgePadding[c].padLeft;
+            const ePadRight = edgePadding[c].padRight;
 
             const tileCanvas = document.createElement('canvas');
             tileCanvas.width = POST_W;
@@ -174,39 +198,53 @@ function renderPreview() {
 
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, POST_W, POST_H);
-            ctx.drawImage(resizedCanvas, x0, y0, cw, ch, leftM, topM, cw, ch);
+            
+            // Draw image shifted by edge padding (leaves black margin on edge)
+            const drawX = leftM + ePadLeft;
+            ctx.drawImage(resizedCanvas, x0, y0, srcW, srcH, drawX, topM, srcW, srcH);
+            
+            // Content area for frame (full content width including edge padding)
+            const cw = contentWidths[c], ch = contentHeights[r];
 
             // Draw frame
+            // Skip frame on sides where edge margin is applied
+            const skipLeft = ePadLeft > 0;
+            const skipRight = ePadRight > 0;
+            
             if (frameOn) {
                 ctx.strokeStyle = '#fff';
                 ctx.lineWidth = 1;
                 const fl = leftM, ft = topM, fr = leftM + cw - 1, fb = topM + ch - 1;
 
                 if (frameStyleVal === 'outer') {
+                    // Outer frame: only on grid outer edges
                     for (let t = 0; t < frameThick; t++) {
                         if (r === 0) drawLine(ctx, fl, ft + t, fr, ft + t);
                         if (r === rows - 1) drawLine(ctx, fl, fb - t, fr, fb - t);
-                        if (c === 0) drawLine(ctx, fl + t, ft, fl + t, fb);
-                        if (c === cols - 1) drawLine(ctx, fr - t, ft, fr - t, fb);
+                        if (c === 0 && !skipLeft) drawLine(ctx, fl + t, ft, fl + t, fb);
+                        if (c === cols - 1 && !skipRight) drawLine(ctx, fr - t, ft, fr - t, fb);
                     }
                 } else {
+                    // Individual frame: on grid outer edges, but using image content bounds for fit mode
                     if (modeVal === 'fit') {
-                        const bounds = getImageBounds(ctx, leftM, topM, cw, ch);
+                        // Fit mode: frame around actual image bounds, only on outer edges
+                        const bounds = getImageBounds(ctx, drawX, topM, srcW, srcH);
                         if (bounds) {
                             const { ix0, iy0, ix1, iy1 } = bounds;
                             for (let t = 0; t < frameThick; t++) {
-                                if (r === 0) drawLine(ctx, ix0, iy0 + t, ix1, iy0 + t);
-                                if (r === rows - 1) drawLine(ctx, ix0, iy1 - t, ix1, iy1 - t);
-                                if (c === 0) drawLine(ctx, ix0 + t, iy0, ix0 + t, iy1);
-                                if (c === cols - 1) drawLine(ctx, ix1 - t, iy0, ix1 - t, iy1);
+                                if (r === 0) drawLine(ctx, ix0, iy0 + t, ix1, iy0 + t);  // top
+                                if (r === rows - 1) drawLine(ctx, ix0, iy1 - t, ix1, iy1 - t);  // bottom
+                                if (c === 0 && !skipLeft) drawLine(ctx, ix0 + t, iy0, ix0 + t, iy1);   // left
+                                if (c === cols - 1 && !skipRight) drawLine(ctx, ix1 - t, iy0, ix1 - t, iy1); // right
                             }
                         }
                     } else {
+                        // Cover mode: frame around content area, only on outer edges
                         for (let t = 0; t < frameThick; t++) {
-                            drawLine(ctx, fl, ft + t, fr, ft + t);
-                            drawLine(ctx, fl, fb - t, fr, fb - t);
-                            drawLine(ctx, fl + t, ft, fl + t, fb);
-                            drawLine(ctx, fr - t, ft, fr - t, fb);
+                            if (r === 0) drawLine(ctx, fl, ft + t, fr, ft + t);  // top
+                            if (r === rows - 1) drawLine(ctx, fl, fb - t, fr, fb - t);  // bottom
+                            if (c === 0 && !skipLeft) drawLine(ctx, fl + t, ft, fl + t, fb);   // left
+                            if (c === cols - 1 && !skipRight) drawLine(ctx, fr - t, ft, fr - t, fb); // right
                         }
                     }
                 }

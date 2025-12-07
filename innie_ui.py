@@ -44,6 +44,8 @@ class InnieUI:
         self.frame_thickness = 4
         self.frame_style = "outer"
         self.mode = "cover"
+        self.edge_tiles_enabled = False
+        self.edge_margin = 0
         
         # Generated tiles
         self.tiles = {}
@@ -264,6 +266,35 @@ class InnieUI:
                             bg=COLORS["bg_input"], fg=COLORS["text"], insertbackground=COLORS["text"],
                             relief="flat", highlightthickness=1, highlightbackground=COLORS["border"])
         mlr_entry.pack(fill=tk.X, pady=2, ipady=4)
+        
+        # Edge Tiles Margin checkbox
+        self.edge_tiles_var = tk.BooleanVar(value=False)
+        edge_check_frame = tk.Frame(container, bg=COLORS["bg_card"])
+        edge_check_frame.pack(fill=tk.X, pady=4)
+        
+        edge_cb = tk.Checkbutton(edge_check_frame, text="Edge Tiles Margin", variable=self.edge_tiles_var,
+                                font=("Helvetica", 10), bg=COLORS["bg_card"], fg=COLORS["text_secondary"],
+                                selectcolor=COLORS["bg_input"], activebackground=COLORS["bg_card"],
+                                activeforeground=COLORS["text"], command=self.toggle_edge_margin)
+        edge_cb.pack(anchor="w")
+        
+        # Edge margin input (hidden by default)
+        self.edge_margin_frame = tk.Frame(container, bg=COLORS["bg_card"])
+        
+        tk.Label(self.edge_margin_frame, text="Edge Margin (px)", font=("Helvetica", 10),
+                bg=COLORS["bg_card"], fg=COLORS["text_secondary"]).pack(anchor="w")
+        
+        self.edge_margin_var = tk.StringVar(value="36")
+        edge_entry = tk.Entry(self.edge_margin_frame, textvariable=self.edge_margin_var, font=("Helvetica", 11),
+                             bg=COLORS["bg_input"], fg=COLORS["text"], insertbackground=COLORS["text"],
+                             relief="flat", highlightthickness=1, highlightbackground=COLORS["border"])
+        edge_entry.pack(fill=tk.X, pady=2, ipady=4)
+    
+    def toggle_edge_margin(self):
+        if self.edge_tiles_var.get():
+            self.edge_margin_frame.pack(fill=tk.X, pady=4)
+        else:
+            self.edge_margin_frame.pack_forget()
     
     def create_frame_settings(self, parent):
         container = tk.Frame(parent, bg=COLORS["bg_card"])
@@ -429,6 +460,8 @@ class InnieUI:
             self.frame_thickness = int(self.frame_thick_var.get()) if self.frame_enabled else 0
             self.frame_style = self.frame_style_var.get()
             self.mode = self.mode_var.get()
+            self.edge_tiles_enabled = self.edge_tiles_var.get()
+            self.edge_margin = int(self.edge_margin_var.get()) if self.edge_tiles_enabled else 0
         except ValueError:
             messagebox.showerror("Error", "Invalid margin or thickness values")
             return
@@ -444,6 +477,7 @@ class InnieUI:
         img = self.source_image
         cols, rows = self.cols, self.rows
         Ms, Mt = self.margin_side, self.margin_tb
+        edge_margin = self.edge_margin
         
         if Ms * 2 >= POST_W:
             raise ValueError("Side margins too large")
@@ -457,14 +491,24 @@ class InnieUI:
             bottom_m = Mt if (rows == 1 or r == rows - 1) else 0
             content_heights.append(POST_H - top_m - bottom_m)
         
-        W_visible, H_visible = sum(content_widths), sum(content_heights)
+        # Edge tiles padding: col 0 gets RIGHT padding, col 2 gets LEFT padding
+        edge_padding = []
+        for c in range(cols):
+            pad_left = edge_margin if c == cols - 1 else 0   # Col 2 (tiles 3,6,9): LEFT padding
+            pad_right = edge_margin if c == 0 else 0         # Col 0 (tiles 1,4,7): RIGHT padding
+            edge_padding.append({'pad_left': pad_left, 'pad_right': pad_right})
+        
+        # Actual image content = content area minus edge padding
+        actual_content_widths = [content_widths[c] - edge_padding[c]['pad_left'] - edge_padding[c]['pad_right'] for c in range(cols)]
+        
+        W_visible, H_visible = sum(actual_content_widths), sum(content_heights)
         
         if self.mode == "cover":
             img_resized = self.resize_cover(img, W_visible, H_visible)
         else:
             img_resized = self.resize_fit(img, W_visible, H_visible)
         
-        cum_w = [sum(content_widths[:i]) for i in range(cols)]
+        cum_w = [sum(actual_content_widths[:i]) for i in range(cols)]
         cum_h = [sum(content_heights[:i]) for i in range(rows)]
         
         self.tiles = {}
@@ -472,54 +516,82 @@ class InnieUI:
         for r in range(rows):
             for c in range(cols):
                 x0, y0 = cum_w[c], cum_h[r]
-                tile_content = img_resized.crop((x0, y0, x0 + content_widths[c], y0 + content_heights[r]))
+                src_w, src_h = actual_content_widths[c], content_heights[r]
+                tile_content = img_resized.crop((x0, y0, x0 + src_w, y0 + src_h))
                 
                 top_m = Mt if (rows == 1 or r == 0) else 0
                 left_m = Ms if c == 0 else 0
                 
+                # Edge padding for this column
+                e_pad_left = edge_padding[c]['pad_left']
+                
                 post = Image.new("RGB", (POST_W, POST_H), (0, 0, 0))
-                post.paste(tile_content, (left_m, top_m))
+                # Draw image shifted by edge padding (leaves black margin on edge)
+                draw_x = left_m + e_pad_left
+                post.paste(tile_content, (draw_x, top_m))
+                
+                # Content area for frame (full content width including edge padding)
+                cw, ch = content_widths[c], content_heights[r]
+                
+                # Skip frame on sides where edge margin is applied
+                skip_left = e_pad_left > 0
+                skip_right = edge_padding[c]['pad_right'] > 0
                 
                 if self.frame_enabled:
                     draw = ImageDraw.Draw(post)
-                    bbox = tile_content.getbbox()
-                    if bbox:
-                        fl, ft = left_m + bbox[0], top_m + bbox[1]
-                        fr, fb = left_m + bbox[2] - 1, top_m + bbox[3] - 1
-                        
-                        if self.frame_style == "outer":
-                            if r == 0:
-                                for t in range(self.frame_thickness):
-                                    draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
-                            if r == rows - 1:
-                                for t in range(self.frame_thickness):
-                                    draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
-                            if c == 0:
-                                for t in range(self.frame_thickness):
-                                    draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
-                            if c == cols - 1:
-                                for t in range(self.frame_thickness):
-                                    draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
-                        else:
-                            if self.mode == "fit":
+                    fl, ft = left_m, top_m
+                    fr, fb = left_m + cw - 1, top_m + ch - 1
+                    
+                    if self.frame_style == "outer":
+                        # Outer frame: only on grid outer edges
+                        if r == 0:
+                            for t in range(self.frame_thickness):
+                                draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
+                        if r == rows - 1:
+                            for t in range(self.frame_thickness):
+                                draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
+                        if c == 0 and not skip_left:
+                            for t in range(self.frame_thickness):
+                                draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
+                        if c == cols - 1 and not skip_right:
+                            for t in range(self.frame_thickness):
+                                draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
+                    else:
+                        # Individual frame: on grid outer edges, using image content bounds for fit mode
+                        if self.mode == "fit":
+                            # Fit mode: frame around actual image bounds, only on outer edges
+                            bbox = tile_content.getbbox()
+                            if bbox:
+                                ix0 = draw_x + bbox[0]
+                                iy0 = top_m + bbox[1]
+                                ix1 = draw_x + bbox[2] - 1
+                                iy1 = top_m + bbox[3] - 1
                                 if r == 0:
                                     for t in range(self.frame_thickness):
-                                        draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
+                                        draw.line([(ix0, iy0 + t), (ix1, iy0 + t)], fill="white")  # top
                                 if r == rows - 1:
                                     for t in range(self.frame_thickness):
-                                        draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
-                                if c == 0:
+                                        draw.line([(ix0, iy1 - t), (ix1, iy1 - t)], fill="white")  # bottom
+                                if c == 0 and not skip_left:
                                     for t in range(self.frame_thickness):
-                                        draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
-                                if c == cols - 1:
+                                        draw.line([(ix0 + t, iy0), (ix0 + t, iy1)], fill="white")  # left
+                                if c == cols - 1 and not skip_right:
                                     for t in range(self.frame_thickness):
-                                        draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
-                            else:
+                                        draw.line([(ix1 - t, iy0), (ix1 - t, iy1)], fill="white")  # right
+                        else:
+                            # Cover mode: frame around content area, only on outer edges
+                            if r == 0:
                                 for t in range(self.frame_thickness):
-                                    draw.line([(fl, ft + t), (fr, ft + t)], fill="white")
-                                    draw.line([(fl, fb - t), (fr, fb - t)], fill="white")
-                                    draw.line([(fl + t, ft), (fl + t, fb)], fill="white")
-                                    draw.line([(fr - t, ft), (fr - t, fb)], fill="white")
+                                    draw.line([(fl, ft + t), (fr, ft + t)], fill="white")  # top
+                            if r == rows - 1:
+                                for t in range(self.frame_thickness):
+                                    draw.line([(fl, fb - t), (fr, fb - t)], fill="white")  # bottom
+                            if c == 0 and not skip_left:
+                                for t in range(self.frame_thickness):
+                                    draw.line([(fl + t, ft), (fl + t, fb)], fill="white")  # left
+                            if c == cols - 1 and not skip_right:
+                                for t in range(self.frame_thickness):
+                                    draw.line([(fr - t, ft), (fr - t, fb)], fill="white")  # right
                 
                 self.tiles[index] = post
                 index += 1
